@@ -20,10 +20,10 @@
         .custom-scroll::-webkit-scrollbar-track { background-color: #f1f5f9; }
     </style>
 
-    <!-- Firebase Imports (kept for your UI) -->
+    <!-- Firebase Imports -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         window.db = null;
@@ -49,59 +49,94 @@
                 window.auth = getAuth(app);
 
                 onAuthStateChanged(window.auth, async (user) => {
-                    if (user) {
-                        window.userId = user.uid;
-                    } else {
+                    if (user) window.userId = user.uid;
+                    else {
                         try {
-                            const anonymousUser = await signInAnonymously(window.auth);
-                            window.userId = anonymousUser.user.uid;
-                        } catch (error) {
-                            console.error(error);
+                            const u = await signInAnonymously(window.auth);
+                            window.userId = u.user.uid;
+                        } catch {
                             window.userId = crypto.randomUUID();
                         }
                     }
                     window.isAuthReady = true;
                 });
-            } catch (error) {
-                console.error("Firebase init error:", error);
-            }
+            } catch (e) { console.error(e); }
         };
 
         initFirebase();
     </script>
-
 </head>
+
 <body class="min-h-screen flex items-center justify-center p-4">
 
-    <div id="app-container" class="w-full max-w-4xl bg-white shadow-2xl rounded-xl p-6 md:p-10 transition-all duration-300">
+    <div id="app-container" class="w-full max-w-4xl bg-white shadow-2xl rounded-xl p-6 md:p-10">
 
         <h1 class="text-3xl font-bold text-gray-800 mb-2 text-center">AI Food Intake Estimator 🥗</h1>
-        <p class="text-center text-gray-500 mb-8">Upload a picture of your food to get instant nutritional insights.</p>
+        <p class="text-center text-gray-500 mb-8">Upload or capture a food picture — optionally describe your dish for higher accuracy.</p>
 
         <div class="grid md:grid-cols-2 gap-8 mb-8">
 
-            <!-- Image Upload Section -->
+            <!-- LEFT SIDE: Upload + Camera + User Fields -->
             <div class="bg-gray-50 p-6 rounded-lg border-2 border-dashed border-indigo-300">
-                <label class="block text-lg font-semibold mb-4 cursor-pointer">1. Upload Food Image</label>
+
+                <label class="block text-lg font-semibold mb-4 cursor-pointer">1. Add a Food Image</label>
+
+                <!-- Hidden Upload Input -->
                 <input type="file" id="imageUpload" accept="image/*" class="hidden" onchange="previewImage(event)">
 
-                <div id="image-placeholder" class="h-64 flex items-center justify-center border border-gray-300 rounded-lg overflow-hidden bg-white cursor-pointer"
+                <!-- Hidden Camera Capture Input -->
+                <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden" onchange="previewImage(event)">
+
+                <!-- Preview Box -->
+                <div id="image-placeholder"
+                    class="h-64 flex items-center justify-center border border-gray-300 rounded-lg overflow-hidden bg-white cursor-pointer"
                     onclick="document.getElementById('imageUpload').click()">
+
                     <span id="placeholder-text" class="text-gray-400">Click to select an image</span>
-                    <img id="image-preview" class="hidden w-full h-full object-cover" alt="Food preview">
+                    <img id="image-preview" class="hidden w-full h-full object-cover" alt="Preview">
+                </div>
+
+                <!-- Buttons -->
+                <div class="flex gap-3 mt-4">
+                    <button 
+                        class="w-1/2 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                        onclick="document.getElementById('imageUpload').click()">
+                        Upload Image 📁
+                    </button>
+
+                    <button 
+                        class="w-1/2 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                        onclick="openCamera()">
+                        Take Photo 📸
+                    </button>
+                </div>
+
+                <!-- OPTIONAL HINT FIELDS -->
+                <div class="mt-6 space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold">Optional: Dish Name</label>
+                        <input id="user-dish-name" type="text" placeholder="e.g., Chicken Biryani"
+                            class="w-full p-2 border rounded-lg">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold">Optional: Portion Size</label>
+                        <input id="user-quantity" type="text" placeholder="e.g., 1 medium plate"
+                            class="w-full p-2 border rounded-lg">
+                    </div>
                 </div>
 
                 <button onclick="analyzeFood()" id="analyzeButton"
-                    class="w-full mt-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md disabled:bg-indigo-400"
+                    class="w-full mt-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400"
                     disabled>
                     Analyze Food
                 </button>
             </div>
 
-            <!-- Results Section -->
+            <!-- RIGHT SIDE: Results -->
             <div class="bg-white p-6 rounded-lg shadow-inner border border-gray-200">
 
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">2. Estimation & Impact</h2>
+                <h2 class="text-xl font-semibold mb-4">2. Estimation & Impact</h2>
 
                 <!-- Loading -->
                 <div id="loading" class="hidden flex flex-col items-center justify-center h-64 text-indigo-600">
@@ -109,35 +144,36 @@
                         <circle class="opacity-25" cx="12" cy="12" r="10"></circle>
                         <path class="opacity-75" d="M4 12a8 8 0 018-8"></path>
                     </svg>
-                    <p class="text-sm font-medium">Analyzing image...</p>
+                    <p class="text-sm">Analyzing image...</p>
                 </div>
 
                 <!-- Results -->
                 <div id="results" class="hidden custom-scroll max-h-96 overflow-y-auto">
+
                     <div class="mb-4 p-4 bg-indigo-50 border-l-4 border-indigo-500 rounded-md">
-                        <p class="text-sm font-medium text-indigo-700">Food Item: <span id="food-description"></span></p>
-                        <p class="text-sm font-medium text-indigo-700">Serving: <span id="serving-size"></span></p>
+                        <p><b>Food:</b> <span id="food-description"></span></p>
+                        <p><b>Serving:</b> <span id="serving-size"></span></p>
                     </div>
 
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                        <div class="text-center p-3 bg-red-50 rounded-lg border"><p class="text-xs">Calories</p><p id="calories" class="text-lg font-bold"></p></div>
-                        <div class="text-center p-3 bg-green-50 rounded-lg border"><p class="text-xs">Protein</p><p id="protein" class="text-lg font-bold"></p></div>
-                        <div class="text-center p-3 bg-yellow-50 rounded-lg border"><p class="text-xs">Fat</p><p id="fat" class="text-lg font-bold"></p></div>
-                        <div class="text-center p-3 bg-blue-50 rounded-lg border"><p class="text-xs">Carbs</p><p id="carbs" class="text-lg font-bold"></p></div>
+                        <div class="p-3 bg-red-50 text-center rounded border"><p>Calories</p><p id="calories"></p></div>
+                        <div class="p-3 bg-green-50 text-center rounded border"><p>Protein</p><p id="protein"></p></div>
+                        <div class="p-3 bg-yellow-50 text-center rounded border"><p>Fat</p><p id="fat"></p></div>
+                        <div class="p-3 bg-blue-50 text-center rounded border"><p>Carbs</p><p id="carbs"></p></div>
                     </div>
 
-                    <h3 class="font-bold mb-1">Daily Impact</h3>
-                    <p id="daily-impact" class="text-sm bg-gray-100 p-3 rounded-md mb-4"></p>
+                    <h3 class="font-bold">Daily Impact</h3>
+                    <p id="daily-impact" class="p-3 bg-gray-100 rounded mb-3"></p>
 
-                    <h3 class="font-bold mb-1">Minimal Impact Suggestion</h3>
-                    <p id="suggestion-minimal" class="text-sm bg-green-50 p-3 border-l-4 border-green-500 rounded-md mb-4"></p>
+                    <h3 class="font-bold">Minimal Impact</h3>
+                    <p id="suggestion-minimal" class="p-3 bg-green-50 border-l-4 border-green-500 rounded mb-3"></p>
 
-                    <h3 class="font-bold mb-1">Significant Impact Suggestion</h3>
-                    <p id="suggestion-significant" class="text-sm bg-red-50 p-3 border-l-4 border-red-500 rounded-md"></p>
+                    <h3 class="font-bold">Significant Impact</h3>
+                    <p id="suggestion-significant" class="p-3 bg-red-50 border-l-4 border-red-500 rounded"></p>
                 </div>
 
                 <!-- Error -->
-                <div id="error-message" class="hidden mt-4 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-md">
+                <div id="error-message" class="hidden mt-4 p-4 bg-red-100 border-l-4 border-red-500 rounded">
                     <p class="font-bold">Analysis Failed</p>
                     <p id="error-text" class="text-sm"></p>
                 </div>
@@ -146,144 +182,130 @@
         </div>
 
         <div class="text-center text-xs text-gray-400 mt-4">
-            <p>User ID: <span id="display-user-id">Loading...</span></p>
+            User ID: <span id="display-user-id">Loading...</span>
         </div>
 
     </div>
 
-    <!-- Main Script -->
-    <script>
-        const imagePreview = document.getElementById('image-preview');
-        const placeholderText = document.getElementById('placeholder-text');
-        const analyzeButton = document.getElementById('analyzeButton');
-        const loadingDiv = document.getElementById('loading');
-        const resultsDiv = document.getElementById('results');
-        const errorDiv = document.getElementById('error-message');
-        const errorText = document.getElementById('error-text');
-        const displayUserId = document.getElementById('display-user-id');
+<script>
+    const imgPreview = document.getElementById('image-preview');
+    const placeholder = document.getElementById('placeholder-text');
+    const analyzeBtn = document.getElementById('analyzeButton');
+    const resultsDiv = document.getElementById('results');
+    const loadingDiv = document.getElementById('loading');
+    const errorDiv = document.getElementById('error-message');
+    const errorText = document.getElementById('error-text');
+    const displayUserId = document.getElementById('display-user-id');
 
-        let imageBase64 = null;
+    const dishField = document.getElementById('user-dish-name');
+    const quantityField = document.getElementById('user-quantity');
 
-        function previewImage(event) {
-            resultsDiv.classList.add('hidden');
-            errorDiv.classList.add('hidden');
+    let imageBase64 = null;
 
-            const file = event.target.files?.[0];
-            if (!file) return;
+    // Open camera
+    function openCamera() {
+        document.getElementById('cameraInput').click();
+    }
 
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                imagePreview.src = e.target.result;
-                imagePreview.classList.remove('hidden');
-                placeholderText.classList.add('hidden');
-                analyzeButton.disabled = false;
-                imageBase64 = e.target.result.split(',')[1];
-            };
-            reader.readAsDataURL(file);
-        }
+    // Preview function (works for upload + camera)
+    function previewImage(event) {
+        const file = event.target.files?.[0];
+        if (!file) return;
 
-        function getBackoffDelay(attempt) {
-            return Math.pow(2, attempt) * 1000;
-        }
+        const reader = new FileReader();
+        reader.onload = e => {
+            imgPreview.src = e.target.result;
+            imgPreview.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+            analyzeBtn.disabled = false;
 
-        async function fetchWithRetry(url, options, maxRetries = 3) {
-            for (let i = 0; i < maxRetries; i++) {
-                try {
-                    const res = await fetch(url, options);
-                    if (res.status === 429 && i < maxRetries - 1) {
-                        await new Promise(r => setTimeout(r, getBackoffDelay(i)));
-                        continue;
-                    }
-                    if (!res.ok) throw new Error(res.status);
-                    return res;
-                } catch (err) {
-                    if (i === maxRetries - 1) throw err;
-                    await new Promise(r => setTimeout(r, getBackoffDelay(i)));
-                }
-            }
-        }
-
-        async function analyzeFood() {
-            if (!imageBase64) {
-                showError("Please upload an image before analyzing.");
-                return;
-            }
-
-            analyzeButton.disabled = true;
-            loadingDiv.classList.remove('hidden');
-            errorDiv.classList.add('hidden');
-
-            const apiUrl = "https://abhineeth23-food-estimator-proxy.hf.space/analyze";
-
-            const payload = {
-                contents: [
-                    {
-                        role: "user",
-                        parts: [
-                            { text: "Analyze the food item in the image." },
-                            { inlineData: { mimeType: "image/jpeg", data: imageBase64 } }
-                        ]
-                    }
-                ]
-            };
-
-            try {
-                const response = await fetchWithRetry(apiUrl, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                if (!text) throw new Error("Empty response");
-
-                const clean = text.replace(/```json|```/g, '').trim();
-                const data = JSON.parse(clean);
-
-                updateResultsUI(data);
-
-            } catch (e) {
-                console.error(e);
-                showError("The AI could not analyze the image.");
-            } finally {
-                loadingDiv.classList.add('hidden');
-                analyzeButton.disabled = false;
-            }
-        }
-
-        function updateResultsUI(data) {
-            const format = (n) => typeof n === "number" ? n.toFixed(1) : "N/A";
-
-            document.getElementById('food-description').textContent = data.foodDescription;
-            document.getElementById('serving-size').textContent = `${format(data.estimatedServingSizeGrams)} g`;
-            document.getElementById('calories').textContent = format(data.caloriesKcal);
-            document.getElementById('protein').textContent = format(data.proteinGrams);
-            document.getElementById('fat').textContent = format(data.fatGrams);
-            document.getElementById('carbs').textContent = format(data.carbsGrams);
-            document.getElementById('daily-impact').textContent = data.dailyImpactSummary;
-            document.getElementById('suggestion-minimal').textContent = data.suggestionMinimalImpact;
-            document.getElementById('suggestion-significant').textContent = data.suggestionSignificantImpact;
-
-            resultsDiv.classList.remove('hidden');
-        }
-
-        function showError(msg) {
-            errorText.textContent = msg;
-            errorDiv.classList.remove('hidden');
-            resultsDiv.classList.add('hidden');
-        }
-
-        window.onload = () => {
-            const interval = setInterval(() => {
-                if (window.isAuthReady) {
-                    displayUserId.textContent = window.userId;
-                    clearInterval(interval);
-                }
-            }, 100);
+            imageBase64 = e.target.result.split(',')[1];
         };
-    </script>
+        reader.readAsDataURL(file);
+    }
 
+    function showError(msg) {
+        errorText.textContent = msg;
+        errorDiv.classList.remove('hidden');
+        resultsDiv.classList.add('hidden');
+    }
+
+    async function analyzeFood() {
+        if (!imageBase64) return showError("No image uploaded.");
+
+        analyzeBtn.disabled = true;
+        loadingDiv.classList.remove('hidden');
+        errorDiv.classList.add('hidden');
+
+        const userHints = `
+${dishField.value ? `Dish Name: ${dishField.value}` : ""}
+${quantityField.value ? `Quantity: ${quantityField.value}` : ""}
+        `.trim();
+
+        const payload = {
+            contents: [
+                {
+                    role: "user",
+                    parts: [
+                        { text: "Analyze the food image using the optional user-provided hints below." },
+                        { text: userHints || "No additional hints provided." },
+                        { inlineData: { mimeType: "image/jpeg", data: imageBase64 } }
+                    ]
+                }
+            ]
+        };
+
+        try {
+            const res = await fetch("https://abhineeth23-food-estimator-proxy.hf.space/analyze", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (!text) throw new Error("Invalid AI response");
+
+            const clean = text.replace(/```json|```/g, "").trim();
+            const json = JSON.parse(clean);
+
+            updateResults(json);
+
+        } catch (e) {
+            console.error(e);
+            showError("The AI could not analyze the image.");
+        }
+
+        loadingDiv.classList.add('hidden');
+        analyzeBtn.disabled = false;
+    }
+
+    function updateResults(data) {
+        const fmt = n => typeof n === "number" ? n.toFixed(1) : "N/A";
+
+        document.getElementById('food-description').textContent = data.foodDescription;
+        document.getElementById('serving-size').textContent = `${fmt(data.estimatedServingSizeGrams)} g`;
+        document.getElementById('calories').textContent = fmt(data.caloriesKcal);
+        document.getElementById('protein').textContent = fmt(data.proteinGrams);
+        document.getElementById('fat').textContent = fmt(data.fatGrams);
+        document.getElementById('carbs').textContent = fmt(data.carbsGrams);
+        document.getElementById('daily-impact').textContent = data.dailyImpactSummary;
+        document.getElementById('suggestion-minimal').textContent = data.suggestionMinimalImpact;
+        document.getElementById('suggestion-significant').textContent = data.suggestionSignificantImpact;
+
+        resultsDiv.classList.remove('hidden');
+        errorDiv.classList.add('hidden');
+    }
+
+    window.onload = () => {
+        const i = setInterval(() => {
+            if (window.isAuthReady) {
+                displayUserId.textContent = window.userId;
+                clearInterval(i);
+            }
+        }, 100);
+    };
+</script>
 </body>
 </html>
