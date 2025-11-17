@@ -255,6 +255,8 @@ ${quantityField.value ? `Quantity: ${quantityField.value}` : ""}
             ]
         };
 
+        window.lastPayload = payload;  // <-- Debug hook
+
         try {
             const res = await fetch("https://abhineeth23-food-estimator-proxy.hf.space/analyze", {
                 method: "POST",
