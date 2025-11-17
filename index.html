@@ -209,20 +209,51 @@
 
     // Preview function (works for upload + camera)
     function previewImage(event) {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = e => {
-            imgPreview.src = e.target.result;
-            imgPreview.classList.remove('hidden');
-            placeholder.classList.add('hidden');
-            analyzeBtn.disabled = false;
-
-            imageBase64 = e.target.result.split(',')[1];
-        };
-        reader.readAsDataURL(file);
+    const file = event.target.files?.[0];
+    if (!file) {
+        analyzeButton.disabled = true;
+        return;
     }
+
+    // Reset until ready
+    imageBase64 = null;
+    analyzeButton.disabled = true;
+
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+        const result = e.target.result;
+        
+        // Safety check: ensure proper base64 format
+        if (!result.startsWith("data:image")) {
+            showError("Invalid image format. Please try again.");
+            return;
+        }
+
+        // Extract base64 safely
+        const base64 = result.split(',')[1];
+
+        if (!base64) {
+            showError("Failed to load image. Please try again.");
+            return;
+        }
+
+        imageBase64 = base64;
+
+        // Update UI
+        imagePreview.src = result;
+        imagePreview.classList.remove('hidden');
+        placeholderText.classList.add('hidden');
+
+        analyzeButton.disabled = false;
+    };
+
+    reader.onerror = function() {
+        showError("Could not read file.");
+    };
+
+    reader.readAsDataURL(file);
+}
 
     function showError(msg) {
         errorText.textContent = msg;
