@@ -30,7 +30,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
         // Global variables for Firebase services
         window.db = null;
         window.auth = null;
@@ -41,7 +40,6 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
         // Function to initialize Firebase
         const initFirebase = async () => {
             if (Object.keys(firebaseConfig).length === 0) {
@@ -51,7 +49,6 @@
                 window.isAuthReady = true;
                 return;
             }
-
             try {
                 
                 // Set Firestore log level for debugging
@@ -60,7 +57,6 @@
                 const app = initializeApp(firebaseConfig);
                 window.db = getFirestore(app);
                 window.auth = getAuth(app);
-
                 // Authentication Setup
                 onAuthStateChanged(window.auth, async (user) => {
                     if (user) {
@@ -79,7 +75,6 @@
                     }
                     window.isAuthReady = true;
                 });
-
                 // Attempt custom token sign-in if token is available
                 if (initialAuthToken) {
                     await signInWithCustomToken(window.auth, initialAuthToken)
@@ -91,7 +86,6 @@
                 console.error("Firebase initialization error:", error);
             }
         };
-
         initFirebase();
     </script>
 </head>
@@ -201,10 +195,7 @@
         
         let imageBase64 = null;
         // Global variable to store the hardcoded API key
-        window.userApiKey = "AIzaSyDi-n8zjAwH_SlNMvSdhqXq5Kw6XvhKPcE"; 
-
         // --- Utility Functions ---
-
         /**
          * Displays the uploaded image and enables the analyze button.
          * @param {Event} event - The change event from the file input.
@@ -215,7 +206,6 @@
             if (event.target.files && event.target.files[0]) {
                 const file = event.target.files[0];
                 const reader = new FileReader();
-
                 reader.onload = function(e) {
                     imagePreview.src = e.target.result;
                     imagePreview.classList.remove('hidden');
@@ -225,7 +215,6 @@
                     // Store Base64 data (without header) for API call
                     imageBase64 = e.target.result.split(',')[1];
                 };
-
                 reader.readAsDataURL(file);
             } else {
                 imagePreview.classList.add('hidden');
@@ -243,7 +232,6 @@
         function getBackoffDelay(attempt) {
             return Math.pow(2, attempt) * 1000;
         }
-
         /**
          * Retries the fetch operation with exponential backoff.
          * @param {string} url - API URL.
@@ -273,10 +261,7 @@
                 }
             }
         }
-
-
         // --- Main Logic ---
-
         /**
          * Calls the Gemini API to analyze the food image.
          */
@@ -285,15 +270,12 @@
                 showError("Please upload an image before analyzing.");
                 return;
             }
-
             // UI state management
             analyzeButton.disabled = true;
             loadingDiv.classList.remove('hidden');
             resultsDiv.classList.add('hidden');
             errorDiv.classList.add('hidden');
-
             const apiKeyToUse = window.userApiKey;
-
             // Check if the hardcoded key is missing (should not happen, but for robustness)
             if (!apiKeyToUse || apiKeyToUse.length < 10) { 
                  showError("API Key is missing or invalid. Please check the hardcoded API key in the script.");
@@ -301,12 +283,9 @@
                  loadingDiv.classList.add('hidden');
                  return;
             }
-
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKeyToUse}`;
-
+            const apiUrl = "https://abhineeth23-food-estimator-proxy.hf.space/analyze";
             const systemPrompt = "You are an AI Food Scanner and Nutrition Analyst. Your task is to accurately estimate the food item, its volume, and its nutritional content based on the provided image, and suggest consumption strategies for health impact. Assume a standard 2000 kcal/day diet for an average adult.";
             const userQuery = "Analyze the food item and estimated serving size shown in the image. Return the analysis as a single JSON object structured according to the provided schema.";
-
             const payload = {
                 contents: [
                     {
@@ -345,17 +324,14 @@
                     }
                 }
             };
-
             try {
                 const response = await fetchWithRetry(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-
                 const result = await response.json();
                 const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-
                 if (!jsonText) {
                     throw new Error("API response was valid but contained no JSON text.");
                 }
@@ -365,7 +341,6 @@
                 const foodData = JSON.parse(cleanJsonText);
                 
                 updateResultsUI(foodData);
-
             } catch (e) {
                 console.error("Error during food analysis:", e);
                 showError("The AI could not analyze the image. Please ensure your Gemini API Key is valid and try a clearer photo.");
@@ -374,7 +349,6 @@
                 analyzeButton.disabled = false;
             }
         }
-
         /**
          * Updates the UI with the structured data from the Gemini API response.
          * @param {object} data - The parsed JSON data.
@@ -382,23 +356,18 @@
         function updateResultsUI(data) {
             // Format numbers to one decimal place for display
             const format = (num) => (typeof num === 'number' ? num.toFixed(1) : 'N/A');
-
             document.getElementById('food-description').textContent = data.foodDescription || 'N/A';
             document.getElementById('serving-size').textContent = `${format(data.estimatedServingSizeGrams)} g`;
-
             document.getElementById('calories').textContent = format(data.caloriesKcal);
             document.getElementById('protein').textContent = format(data.proteinGrams);
             document.getElementById('fat').textContent = format(data.fatGrams);
             document.getElementById('carbs').textContent = format(data.carbsGrams);
-
             document.getElementById('daily-impact').textContent = data.dailyImpactSummary || 'No summary provided.';
             document.getElementById('suggestion-minimal').textContent = data.suggestionMinimalImpact || 'No minimal impact suggestion.';
             document.getElementById('suggestion-significant').textContent = data.suggestionSignificantImpact || 'No significant impact suggestion.';
-
             resultsDiv.classList.remove('hidden');
             errorDiv.classList.add('hidden');
         }
-
         /**
          * Shows an error message in the UI.
          * @param {string} message - The error message to display.
@@ -408,7 +377,6 @@
             errorDiv.classList.remove('hidden');
             resultsDiv.classList.add('hidden');
         }
-
         // Initialize user ID display once auth is ready
         window.onload = () => {
              // Polling for userId, since Firebase initialization is asynchronous
