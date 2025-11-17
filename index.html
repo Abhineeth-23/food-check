@@ -378,7 +378,7 @@
             const checkAuthInterval = setInterval(() => {
                 if (window.isAuthReady) {
                     // Update display based on whether Firebase successfully initialized
-                    displayUserId.textContent = window.userId === 'Public-Session-User' ? 'Public Session (API Key Required)' : window.userId;
+                    displayUserId.textContent = window.userId;
                     clearInterval(checkAuthInterval);
                 }
             }, 100);
