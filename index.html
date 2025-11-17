@@ -275,14 +275,9 @@
             loadingDiv.classList.remove('hidden');
             resultsDiv.classList.add('hidden');
             errorDiv.classList.add('hidden');
-            const apiKeyToUse = window.userApiKey;
+            
             // Check if the hardcoded key is missing (should not happen, but for robustness)
-            if (!apiKeyToUse || apiKeyToUse.length < 10) { 
-                 showError("API Key is missing or invalid. Please check the hardcoded API key in the script.");
-                 analyzeButton.disabled = false;
-                 loadingDiv.classList.add('hidden');
-                 return;
-            }
+            
             const apiUrl = "https://abhineeth23-food-estimator-proxy.hf.space/analyze";
             const systemPrompt = "You are an AI Food Scanner and Nutrition Analyst. Your task is to accurately estimate the food item, its volume, and its nutritional content based on the provided image, and suggest consumption strategies for health impact. Assume a standard 2000 kcal/day diet for an average adult.";
             const userQuery = "Analyze the food item and estimated serving size shown in the image. Return the analysis as a single JSON object structured according to the provided schema.";
